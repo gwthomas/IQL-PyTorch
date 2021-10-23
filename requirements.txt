@@ -1,0 +1,7 @@
+numpy
+scipy
+pandas
+tqdm
+gym[mujoco] >= 0.18.0
+torch>=1.7.0
+git+https://github.com/rail-berkeley/d4rl@master#egg=d4rl

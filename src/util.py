@@ -1,4 +1,6 @@
+import csv
 from datetime import datetime
+import json
 from pathlib import Path
 import random
 import string
@@ -40,10 +42,13 @@ def mlp(dims, activation=nn.ReLU, output_activation=None, squeeze_output=False):
     return net
 
 
+def compute_batched(f, xs):
+    return f(torch.cat(xs, dim=0)).split([len(x) for x in xs])
+
+
 def update_exponential_moving_average(target, source, alpha):
-    for target_param, param in zip(target.parameters(), source.parameters()):
-        target_param.data.mul_(1. - alpha)
-        target_param.data.add_(alpha * param.data)
+    for target_param, source_param in zip(target.parameters(), source.parameters()):
+        target_param.data.mul_(1. - alpha).add_(source_param.data, alpha=alpha)
 
 
 def torchify(x):
@@ -52,6 +57,23 @@ def torchify(x):
         x = x.float()
     x = x.to(device=DEFAULT_DEVICE)
     return x
+
+
+
+def return_range(dataset, max_episode_steps):
+    returns, lengths = [], []
+    ep_ret, ep_len = 0., 0
+    for r, d in zip(dataset['rewards'], dataset['terminals']):
+        ep_ret += float(r)
+        ep_len += 1
+        if d or ep_len == max_episode_steps:
+            returns.append(ep_ret)
+            lengths.append(ep_len)
+            ep_ret, ep_len = 0., 0
+    # returns.append(ep_ret)    # incomplete trajectory
+    lengths.append(ep_len)      # but still keep track of number of steps
+    assert sum(lengths) == len(dataset['rewards'])
+    return min(returns), max(returns)
 
 
 # dataset is a dict, values of which are tensors of same first dimension
@@ -64,12 +86,12 @@ def sample_batch(dataset, batch_size):
     return {k: v[indices] for k, v in dataset.items()}
 
 
-def evaluate_policy(env, policy, max_episode_steps):
+def evaluate_policy(env, policy, max_episode_steps, deterministic=True):
     obs = env.reset()
     total_reward = 0.
     for _ in range(max_episode_steps):
         with torch.no_grad():
-            action = policy(torchify(obs)).loc.cpu().numpy()
+            action = policy.act(torchify(obs), deterministic=deterministic).cpu().numpy()
         next_obs, reward, done, info = env.step(action)
         total_reward += reward
         if done:
@@ -95,21 +117,42 @@ def _gen_dir_name():
     return f'{now_str}_{rand_str}'
 
 class Log:
-    def __init__(self, root_log_dir, filename='log.txt', flush=True):
+    def __init__(self, root_log_dir, cfg_dict,
+                 txt_filename='log.txt',
+                 csv_filename='progress.csv',
+                 cfg_filename='config.json',
+                 flush=True):
         self.dir = Path(root_log_dir)/_gen_dir_name()
         self.dir.mkdir(parents=True)
-        self.path = self.dir/filename
-        self.file = open(self.path, 'w')
+        self.txt_file = open(self.dir/txt_filename, 'w')
+        self.csv_file = None
+        (self.dir/cfg_filename).write_text(json.dumps(cfg_dict))
+        self.txt_filename = txt_filename
+        self.csv_filename = csv_filename
+        self.cfg_filename = cfg_filename
         self.flush = flush
 
     def write(self, message, end='\n'):
         now_str = datetime.now().strftime('%H:%M:%S')
         message = f'[{now_str}] ' + message
-        for f in [sys.stdout, self.file]:
+        for f in [sys.stdout, self.txt_file]:
             print(message, end=end, file=f, flush=self.flush)
 
     def __call__(self, *args, **kwargs):
         self.write(*args, **kwargs)
 
+    def row(self, dict):
+        if self.csv_file is None:
+            self.csv_file = open(self.dir/self.csv_filename, 'w', newline='')
+            self.csv_writer = csv.DictWriter(self.csv_file, list(dict.keys()))
+            self.csv_writer.writeheader()
+
+        self(str(dict))
+        self.csv_writer.writerow(dict)
+        if self.flush:
+            self.csv_file.flush()
+
     def close(self):
-        self.file.close()
+        self.txt_file.close()
+        if self.csv_file is not None:
+            self.csv_file.close()
