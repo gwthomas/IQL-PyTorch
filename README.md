@@ -1,7 +1,7 @@
 # Implicit Q-Learning (IQL) in PyTorch
 This repository houses a minimal PyTorch implementation of [Implicit Q-Learning (IQL)](https://arxiv.org/abs/2110.06169), an offline reinforcement learning algorithm, along with a script to run IQL on tasks from the [D4RL](https://github.com/rail-berkeley/d4rl) benchmark.
 
-To install the dependenies, use `pip install -r requirements.txt`.
+To install the dependencies, use `pip install -r requirements.txt`.
 
 You can run the script like so:
 ```
