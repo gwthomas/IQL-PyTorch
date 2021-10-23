@@ -25,4 +25,4 @@ Below are results for the MuJoCo locomotion tasks, normalized return at the end 
 | hopper-medium-expert-v2 | 76.6 +/- 34.9 | 91.5 |
 | walker2d-medium-expert-v2 | 108.7 +/- 2.2 | 109.6 |
 
-We can see that the performance is mostly similar to what is stated in the paper, but slightly worse on a few tasks. Note that these results were obtained using a slight simplification (deterministic policy and least-squares loss rather than a Gaussian distribution and negative log likelihood), which may explain the diiscrepancy.
+We can see that the performance is mostly similar to what is stated in the paper, but slightly worse on a few tasks. Note that these results were obtained using a small simplification (deterministic policy and least-squares loss rather than a Gaussian distribution and negative log likelihood), which may explain the discrepancy.
